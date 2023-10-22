@@ -27,6 +27,7 @@ k get crd |grep k8ssandra | awk '{system("kubectl delete crd " $1)}'
 
 `[chart version]-[cass-operator version]`
 ### Update EKS03 CRD
+- Breaking change upgrade CRD can cause CassandraDatacenter resource to be cleaned --> Cluster shutdown + Data loss. We did a hack to edit the CRD only.
 - Current nexus CRD is based on 0.29.0-1.6.0 with some manual modification `apiextensions.k8s.io/v1beta1` --> `apiextensions.k8s.io/v1`
 - The latest CRD version we can update without major breaking change is `0.33-1.9.0`
 
