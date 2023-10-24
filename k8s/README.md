@@ -70,7 +70,8 @@ spec:
 https://github.com/k8ssandra/cass-operator 
 
 k8ssandra introduces the integration with CertManager to automatically generate TLS cert for WebHook. This make sure that cass-operator webhook calls are always secured with TLS.
-The thing is, we don't have CertManager.
+
+The thing is, **we don't have CertManager**.
 
 For quick changes and integrate with current config, we will update all CRD and RBAC, with some modifications for WebHook to work independently.
 
