@@ -1,0 +1,478 @@
+---
+# Source: cass-operator/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cass-operator
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+secrets:
+  - name: cass-operator-token
+---
+# Source: cass-operator/templates/configmap.yaml
+kind: ConfigMap
+metadata:
+  name: cass-operator-manager-config
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+apiVersion: v1
+data:
+  controller_manager_config.yaml: |
+    apiVersion: config.k8ssandra.io/v1beta1
+    kind: OperatorConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: :8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: b569adb7.cassandra.datastax.com
+    disableWebhooks: false
+    imageConfigFile: /configs/image_config.yaml
+  image_config.yaml: |
+    apiVersion: config.k8ssandra.io/v1beta1
+    kind: ImageConfig
+    images:
+      system-logger: k8ssandra/system-logger:v1.17.2
+      config-builder: datastax/cass-config-builder:1.0-ubi7
+      k8ssandra-client: k8ssandra/k8ssandra-client:v0.2.0
+    imagePullPolicy: IfNotPresent
+    defaults:
+      # Note, postfix is ignored if repository is not set
+      cassandra:
+        repository: "k8ssandra/cass-management-api"
+      dse:
+        repository: "datastax/dse-mgmtapi-6_8"
+        suffix: "-ubi8"
+---
+# Source: cass-operator/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cass-operator-cr
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: cass-operator/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator-cr
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+subjects:
+  - kind: ServiceAccount
+    name: cass-operator
+    namespace: cass-operator
+roleRef:
+  kind: ClusterRole
+  name: cass-operator-cr
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: cass-operator/templates/leader_election_role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cass-operator-leader
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+rules:
+  - apiGroups:
+      - ""
+      - coordination.k8s.io
+    resources:
+      - configmaps
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+# Source: cass-operator/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cass-operator
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - deployments/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - cassandra.datastax.com
+    resources:
+      - cassandradatacenters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - cassandra.datastax.com
+    resources:
+      - cassandradatacenters/finalizers
+    verbs:
+      - delete
+      - update
+  - apiGroups:
+      - cassandra.datastax.com
+    resources:
+      - cassandradatacenters/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - control.k8ssandra.io
+    resources:
+      - cassandratasks
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - control.k8ssandra.io
+    resources:
+      - cassandratasks/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - control.k8ssandra.io
+    resources:
+      - cassandratasks/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - events
+      - persistentvolumeclaims
+      - pods
+      - secrets
+      - services
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+      - pods
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+# Source: cass-operator/templates/leader_election_role_binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cass-operator-leader
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cass-operator-leader
+subjects:
+  - kind: ServiceAccount
+    name: cass-operator
+---
+# Source: cass-operator/templates/rolebinding.yaml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+subjects:
+  - kind: ServiceAccount
+    name: cass-operator
+roleRef:
+  kind: Role
+  name: cass-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: cass-operator/templates/webhook-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: cass-operator-webhook-service
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    control-plane: cass-operator-controller-manager
+---
+# Source: cass-operator/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cass-operator
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+    control-plane: cass-operator-controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cass-operator
+      app.kubernetes.io/instance: cass-operator
+      app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+  template:
+    metadata:
+      labels:        
+        app.kubernetes.io/name: cass-operator
+        helm.sh/chart: cass-operator-0.44.1
+        app.kubernetes.io/instance: cass-operator
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+        control-plane: cass-operator-controller-manager
+    spec:
+      serviceAccountName: cass-operator
+      securityContext:
+        {}
+      containers:
+        - name: cass-operator
+          args:
+          - --config=/configs/controller_manager_config.yaml
+          command:
+          - /manager
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsGroup: 65534
+            runAsNonRoot: true
+            runAsUser: 65534
+          image: docker.io/k8ssandra/cass-operator:v1.17.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cass-operator-certs-volume
+              readOnly: true
+            - mountPath: /configs
+              name: manager-config
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {}
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      volumes:
+        - name: cass-operator-certs-volume
+          secret:
+            defaultMode: 420
+            secretName: cass-operator-webhook-server-cert
+        - configMap:
+            name: cass-operator-manager-config
+          name: manager-config
+---
+# Source: cass-operator/templates/validatingwebhookconfiguration.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cass-operator-serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+spec:
+  # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
+  dnsNames:
+    -  cass-operator-webhook-service.cass-operator.svc
+    -  cass-operator-webhook-service.cass-operator.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: cass-operator-selfsigned-issuer
+  secretName: cass-operator-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
+---
+# Source: cass-operator/templates/validatingwebhookconfiguration.yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cass-operator-selfsigned-issuer
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+spec:
+  selfSigned: {}
+---
+# Source: cass-operator/templates/validatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cass-operator-validating-webhook-configuration
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+  annotations:
+    cert-manager.io/inject-ca-from: cass-operator/cass-operator-serving-cert
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: cass-operator-webhook-service
+      namespace: cass-operator
+      path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
+  failurePolicy: Fail
+  name: vcassandradatacenter.kb.io
+  rules:
+  - apiGroups:
+    - cassandra.datastax.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - cassandradatacenters
+  sideEffects: None
+
