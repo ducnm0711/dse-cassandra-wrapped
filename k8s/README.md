@@ -67,6 +67,7 @@ spec:
 
 # Changes
 
+## Webhook config
 https://github.com/k8ssandra/cass-operator 
 
 k8ssandra introduces the integration with CertManager to automatically generate TLS cert for WebHook. This make sure that cass-operator webhook calls are always secured with TLS.
@@ -76,3 +77,50 @@ The thing is, **we don't have CertManager**.
 For quick changes and integrate with current config, we will update all CRD and RBAC, with some modifications for WebHook to work independently.
 
 See `manifest-operator-0.44.1-webhook-standalone.yaml`
+
+## Cass-Operator config
+
+Need to update cass-operator helm chart with ConfigMap template:
+```yaml
+# Source: cass-operator/templates/configmap.yaml
+kind: ConfigMap
+metadata:
+  name: cass-operator-manager-config
+  labels:     
+    app.kubernetes.io/name: cass-operator
+    helm.sh/chart: cass-operator-0.44.1
+    app.kubernetes.io/instance: cass-operator
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: k8ssandra-cass-operator-cass-operator
+apiVersion: v1
+data:
+  controller_manager_config.yaml: |
+    apiVersion: config.k8ssandra.io/v1beta1
+    kind: OperatorConfig
+    health:
+      healthProbeBindAddress: :8081
+    metrics:
+      bindAddress: :8080
+    webhook:
+      port: 9443
+    leaderElection:
+      leaderElect: true
+      resourceName: b569adb7.cassandra.datastax.com
+    disableWebhooks: true
+    imageConfigFile: /configs/image_config.yaml
+  image_config.yaml: |
+    apiVersion: config.k8ssandra.io/v1beta1
+    kind: ImageConfig
+    images:
+      system-logger: k8ssandra/system-logger:v1.17.2
+      config-builder: datastax/cass-config-builder:1.0-ubi7
+      k8ssandra-client: k8ssandra/k8ssandra-client:v0.2.0
+    imagePullPolicy: IfNotPresent
+    defaults:
+      # Note, postfix is ignored if repository is not set
+      cassandra:
+        repository: "k8ssandra/cass-management-api"
+      dse:
+        repository: "datastax/dse-mgmtapi-6_8"
+        suffix: "-ubi8"
+```
